@@ -1,0 +1,24 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# ===== 仮想環境 =====
+.venv/
+venv/
+env/
+
+# ===== データ・生成物（再生成可能・サイズ大） =====
+data/
+results/*.parquet
+
+# ===== Claude Code（ローカル固有 / 生成物） =====
+.claude/settings.local.json
+.claude/agent-memory/
+memory/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,6 @@
+.venv/
+data/
+results/*.parquet
+__pycache__/
+*.pyc
+.claude/agent-memory/

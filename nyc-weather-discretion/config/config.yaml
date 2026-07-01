@@ -1,0 +1,60 @@
+# ===== 裁量性 × 天候感応性 — Phase A（自転車・同一モード内トライアンギュレーション） =====
+# 問い: 天候感応性を決めるのは「曝露」でなく「移動の裁量性（やめられるか）」か。
+# 同一モード(自転車)内で、曝露・代替の向きを固定したまま裁量性プロキシだけを動かし、
+# 「レジャー側ほど雨に弱い」が複数の独立プロキシで一致するかを検証する。
+
+period:
+  start_date: "2022-01-01"
+  end_date:   "2023-12-31"
+
+# 既存 nyc-citibike-demand のキャッシュ済み生 zip を再利用（再DLしない）。
+citibike:
+  raw_dir: "../nyc-citibike-demand/data/raw"
+  files:
+    - "2022-citibike-tripdata.zip"
+    - "2023-citibike-tripdata.zip"
+
+# セグメント定義（各々を日次系列にして天候感応性を比較）。
+# 裁量プロキシは3軸。各軸で「通勤側 < レジャー側」の雨感応が一致するかを見る。
+segments:
+  # 軸1: ラウンドトリップ（始点=終点駅）＝レジャーループ vs point-to-point＝通勤
+  roundtrip:
+    weekday_am_hours: [7, 8, 9]       # 通勤プロキシの時間帯（軸2用）
+    weekend_mid_hours: [11, 12, 13, 14, 15]  # レジャープロキシの時間帯（軸2用）
+
+weather:
+  archive_url: "https://archive-api.open-meteo.com/v1/archive"
+  latitude: 40.7484
+  longitude: -73.9857
+  daily_vars:
+    - temperature_2m_mean
+    - temperature_2m_max
+    - temperature_2m_min
+    - precipitation_sum
+    - precipitation_hours
+    - windspeed_10m_max
+  anomaly:
+    enabled: true
+    harmonics: 3
+
+baseline:
+  harmonics: 3        # 曜日 + 平滑季節(調和) + 成長トレンド（weather不使用）
+
+split:
+  train_end: "2023-06-30"
+  val_end:   "2023-09-30"
+
+features:
+  lags: [1, 7, 14]
+  rolling_windows: [7]
+
+# 天候感応性の主指標は corr(残差, 降水アノマリ)（スケール不変・非季節=クリーン）。
+# 副指標: A/B 増分R²、完全標準化係数。
+evaluation:
+  primary_anomaly: "anom_precipitation_hours"
+
+paths:
+  segments: "data/segments_daily.parquet"
+  weather:  "data/weather.parquet"
+  merged:   "data/merged.parquet"
+  results_dir: "results"

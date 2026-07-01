@@ -1,0 +1,52 @@
+﻿# ===== NYC Taxi Demand Forecasting — 設定ファイル =====
+
+period:
+  start_date: "2022-01-01"
+  end_date:   "2024-12-31"
+
+# ゾーン選択方針
+zones:
+  borough: "Manhattan"
+  # 需要上位から自動選択する数
+  top_n: 10
+  # 自動選択でも除外するゾーン（空港・公園など毛色が違うもの）
+  # LocationID で指定。132=JFK, 138=LaGuardia
+  exclude_ids: [132, 138]
+
+# 時系列分割（日付で厳密に切る）
+split:
+  train_end: "2023-12-31"   # 2022-2023 を学習
+  val_end:   "2024-06-30"   # 2024 上半期を検証
+  # test は val_end の翌日〜end_date（2024 下半期）
+
+# 特徴量
+features:
+  lags: [1, 2, 3, 7, 14]
+  rolling_windows: [7]
+
+# モデル共通のチューニング予算（全モデルで統一）
+tuning:
+  n_iter: 20
+  cv_splits: 5
+  random_state: 42
+
+# 外部データ
+weather:
+  # マンハッタン中心の座標
+  latitude: 40.7831
+  longitude: -73.9712
+  daily_vars:
+    - temperature_2m_max
+    - temperature_2m_min
+    - precipitation_sum
+    - snowfall_sum
+    - windspeed_10m_max
+
+paths:
+  raw_demand:  "data/daily_demand.parquet"
+  merged:      "data/merged.parquet"
+  features_dir: "data/features"
+  results:     "results/ablation_table.csv"
+  # ゾーン解像イベント用: precinct→taxi zone の面積重みクロスウォーク
+  # （scripts/build_precinct_zone_crosswalk.py で生成・固定。本体は CSV のみ読む）
+  precinct_zone_crosswalk: "config/precinct_zone_crosswalk.csv"

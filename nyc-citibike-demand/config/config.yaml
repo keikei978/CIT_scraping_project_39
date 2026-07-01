@@ -1,0 +1,91 @@
+# ===== NYC Citi Bike 需要 × 天候 — 設定ファイル =====
+# 研究テーマ: ラグ支配で埋もれる天候の寄与を、ベースライン除去（残差化）と
+#             天候アノマリで顕在化できるか。天候感応性の高いシェアサイクルで検証。
+# 設計はタクシー版の規律を継承しつつ、精査で入れた修正を反映:
+#   - weather はアノマリ（平年偏差）で投入（季節交絡を切る）
+#   - baseline は曜日＋成長トレンド（月・気温は入れない）
+#   - 目的変数は需要 y に一本化（残差化は内部技法＋係数可視化）
+#   - 天候ショック日での増分評価
+#   - member/casual 別を主軸
+
+period:
+  start_date: "2022-01-01"
+  end_date:   "2023-12-31"   # 2年（年次zip 2本・天候ショック日の検出力確保）
+
+# ---- 目的変数: Citi Bike 利用量（日次・システム全体合算） ----
+citibike:
+  # 公式 S3 トリップデータ。NYC本体は年次zip（JC=Jersey Cityは別・除外）。
+  s3_base: "https://s3.amazonaws.com/tripdata/"
+  files:
+    - "2022-citibike-tripdata.zip"
+    - "2023-citibike-tripdata.zip"
+  # 空間は扱わない（過去の空間ミスマッチ・解像度の轍を回避）= システム全体合算。
+  spatial: "system"
+  # 利用者種別は最初から保持（member=通勤=ラグ駆動 / casual=レク=天候駆動 の対比）。
+  keep_user_types: true
+
+# ---- 説明変数: 天候（Open-Meteo Historical, APIキー不要） ----
+weather:
+  archive_url: "https://archive-api.open-meteo.com/v1/archive"
+  # NYC 重心の単一座標（全合算のため1点でよい）。
+  latitude: 40.7484
+  longitude: -73.9857
+  daily_vars:
+    - temperature_2m_mean
+    - temperature_2m_max
+    - temperature_2m_min
+    - precipitation_sum
+    - precipitation_hours
+    - windspeed_10m_max
+  # アノマリ = その日の値 − 「通日(day-of-year)平年値」。平年値は train 期間のみで推定。
+  anomaly:
+    enabled: true
+    smooth_window_days: 15   # day-of-year 平年値の平滑窓（±日数）
+
+# ---- ベースライン（カレンダー周期のみ。天候相関特徴は禁止） ----
+baseline:
+  # B0=曜日平均, B1=曜日+成長トレンド。月・気温は入れない（§3.2 交絡防止）。
+  # 成長トレンドは天候と無相関なので必須（Citi Bike の経年成長 bias を吸収）。
+  types: ["B0_dow", "B1_dow_trend"]
+  trend: "linear_dayindex"   # 通日 index の線形トレンド（天候非相関）
+  fit_on: "train_only"       # val/test へは推定済みベースラインを適用（fit/transform分離）
+
+# ---- 時系列分割（日付で厳密に） ----
+split:
+  train_end: "2023-06-30"   # 2022-01-01 〜 2023-06-30 を学習
+  val_end:   "2023-09-30"   # 2023 Q3 を検証
+  # test は val_end の翌日〜end_date（2023 Q4）
+
+# ---- 特徴量 ----
+features:
+  lags: [1, 7, 14]          # 残差の短期自己相関（lag-1 は deseason 後も残る）
+  rolling_windows: [7]
+  calendar: ["dow", "is_holiday", "trend"]   # month は使わない（天候交絡回避）
+  weather_mode: "anomaly"   # 生値でなくアノマリを特徴に使う
+
+# ---- 特徴アブレーション条件（目的変数は需要 y に一本化） ----
+# A=時間のみ / B=+天候 / C=+ラグ / D=+天候+ラグ。
+# BASE（ベースライン床）は baseline 自身で別途記録。
+conditions: ["A", "B", "C", "D"]
+
+# ---- モデル・チューニング（全モデル統一＝公平比較） ----
+models: ["Linear", "RandomForest", "XGBoost"]
+tuning:
+  n_iter: 20
+  cv_splits: 5
+  random_state: 42
+
+# ---- 評価 ----
+evaluation:
+  # 天候ショック日 = 前日からの気象アノマリ変化が大きい日（lag-1 が外す日）。
+  weather_shock:
+    var: "precipitation_sum"   # まず降水で定義（Phase5 で気温版も）
+    quantile: 0.90             # 変化量上位10%日を「ショック日」とする
+
+paths:
+  raw_dir:      "data/raw"
+  demand:       "data/daily_demand.parquet"
+  weather:      "data/weather.parquet"
+  merged:       "data/merged.parquet"
+  features_dir: "data/features"
+  results_dir:  "results"
