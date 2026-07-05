@@ -2,11 +2,15 @@
 # 既存枠の規律を継承: baseline/anomaly は train のみで fit、暦特徴に生weather非混入、
 # ランダム分割なし。
 
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
+import requests
 
 from src.baseline import fit_baseline, weather_anomaly
 from src.analyze_segments import _cal_features
+from src.ingest_subway import _fetch_page
 
 
 def make_df(n=400, seed=0):
@@ -67,3 +71,33 @@ def test_no_random_split_in_source():
         text = f.read_text(encoding="utf-8")
         if "train_test_split" in text:
             assert "shuffle=False" in text, f"{f.name} でシャッフル分割の疑い"
+
+
+# ===== Phase B（地下鉄）追加検査 =====
+
+# ---------- 地下鉄取得の失敗はサイレント0埋めせず例外を出す ----------
+def test_subway_fetch_fails_hard_not_silent():
+    with patch("src.ingest_subway.requests.get",
+               side_effect=requests.exceptions.ConnectionError("boom")), \
+         patch("src.ingest_subway.time.sleep", return_value=None):
+        try:
+            _fetch_page("http://example.invalid/resource.json", {"$offset": 0}, retries=2)
+        except RuntimeError:
+            pass
+        else:
+            assert False, "取得失敗時に例外が出ず、呼び出し元が0埋めするリスクがある"
+
+
+# ---------- bike と subway が同じ時間窓config（segments.roundtrip）を共有している ----------
+def test_subway_shares_time_window_config_with_bike():
+    import pathlib
+    bike_src = pathlib.Path("src/ingest_segments.py").read_text(encoding="utf-8")
+    subway_src = pathlib.Path("src/ingest_subway.py").read_text(encoding="utf-8")
+    for name, src in (("ingest_segments.py", bike_src), ("ingest_subway.py", subway_src)):
+        assert 'cfg["segments"]["roundtrip"]' in src, (
+            f"{name} が時間窓を config.yaml の segments.roundtrip から読んでいない"
+            "（bike/subway で定義がズレる恐れ）"
+        )
+        assert "weekday_am_hours" in src and "weekend_mid_hours" in src, (
+            f"{name} に weekday_am_hours/weekend_mid_hours の参照が見当たらない"
+        )

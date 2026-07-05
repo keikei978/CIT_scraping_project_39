@@ -22,9 +22,9 @@ def load_config() -> dict:
         return yaml.safe_load(f)
 
 
-def run_merge(cfg: dict) -> pd.DataFrame:
-    seg = pd.read_parquet(PROJECT_ROOT / cfg["paths"]["segments"])
-    wx = pd.read_parquet(PROJECT_ROOT / cfg["paths"]["weather"])
+def run_merge(paths: dict) -> pd.DataFrame:
+    seg = pd.read_parquet(PROJECT_ROOT / paths["segments"])
+    wx = pd.read_parquet(PROJECT_ROOT / paths["weather"])
     seg["date"] = pd.to_datetime(seg["date"]).dt.normalize()
     wx["date"] = pd.to_datetime(wx["date"]).dt.normalize()
 
@@ -40,7 +40,7 @@ def run_merge(cfg: dict) -> pd.DataFrame:
 
 def main() -> None:
     cfg = load_config()
-    merged = run_merge(cfg)
+    merged = run_merge(cfg["paths"])
     dest = PROJECT_ROOT / cfg["paths"]["merged"]
     merged.to_parquet(dest, index=False)
     logger.info("Saved %s shape=%s", dest, merged.shape)

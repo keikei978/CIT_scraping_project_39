@@ -27,13 +27,13 @@ def load_config() -> dict:
         return yaml.safe_load(f)
 
 
-def fetch_weather(cfg: dict) -> pd.DataFrame:
-    w = cfg["weather"]
+def fetch_weather(period: dict, weather_cfg: dict) -> pd.DataFrame:
+    w = weather_cfg
     params = {
         "latitude": w["latitude"],
         "longitude": w["longitude"],
-        "start_date": cfg["period"]["start_date"],
-        "end_date": cfg["period"]["end_date"],
+        "start_date": period["start_date"],
+        "end_date": period["end_date"],
         "daily": ",".join(w["daily_vars"]),
         "timezone": "America/New_York",
     }
@@ -58,7 +58,7 @@ def fetch_weather(cfg: dict) -> pd.DataFrame:
 
 def main() -> None:
     cfg = load_config()
-    df = fetch_weather(cfg)
+    df = fetch_weather(cfg["period"], cfg["weather"])
     dest = PROJECT_ROOT / cfg["paths"]["weather"]
     dest.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(dest, index=False)

@@ -58,3 +58,20 @@ paths:
   weather:  "data/weather.parquet"
   merged:   "data/merged.parquet"
   results_dir: "results"
+
+# ===== Phase B（地下鉄を追加した2×2: 曝露×裁量性） =====
+phase_b:
+  period:
+    start_date: "2023-06-01"
+    end_date:   "2024-08-31"
+  subway:
+    socrata_url: "https://data.ny.gov/resource/wujg-7c2s.json"
+    page_limit: 50000
+  split:
+    train_end: "2024-05-31"
+    val_end:   "2024-07-15"
+  paths:
+    subway_segments: "data/phaseB_subway_segments.parquet"
+    weather:  "data/phaseB_weather.parquet"
+    merged:   "data/phaseB_merged.parquet"
+    results:  "results/phaseB_2x2_mode_segment.csv"
