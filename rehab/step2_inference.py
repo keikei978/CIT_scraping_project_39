@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (fit_baseline, weather_anomaly, block_bootstrap_corr,
                     effective_n, lag1_autocorr, _moving_block_indices)
 
-BASE = Path("C:/Users/keisu/Documents/projects/CIT_Assignment/scraping_project")
+BASE = Path(__file__).resolve().parent.parent
 NH = 3
 NBOOT = 5000
 BLOCK = 14
